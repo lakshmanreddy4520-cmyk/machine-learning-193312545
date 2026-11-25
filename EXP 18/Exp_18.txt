@@ -1,0 +1,67 @@
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import Perceptron
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+# ==========================================
+# 1. LOAD DATASET (Binary Classification)
+# ==========================================
+iris = load_iris()
+
+# Select first 100 samples (Setosa = 0, Versicolor = 1) for a linearly separable problem
+X = iris.data[:100]
+y = iris.target[:100]
+
+# Split dataset: 80% training, 20% testing
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# ==========================================
+# 2. FEATURE SCALING
+# ==========================================
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# ==========================================
+# 3. MODEL TRAINING (Perceptron)
+# ==========================================
+perceptron = Perceptron(max_iter=1000, eta0=0.1, random_state=42)
+perceptron.fit(X_train_scaled, y_train)
+
+# Predictions
+y_pred = perceptron.predict(X_test_scaled)
+
+# ==========================================
+# 4. EVALUATION & RESULTS
+# ==========================================
+accuracy = accuracy_score(y_test, y_pred)
+cm = confusion_matrix(y_test, y_pred)
+
+print("--- PERCEPTRON IRIS CLASSIFICATION RESULTS ---")
+print(f"\nModel Accuracy: {accuracy * 100:.2f}%\n")
+
+print("Learned Weights:", perceptron.coef_)
+print("Learned Bias   :", perceptron.intercept_)
+
+print("\nConfusion Matrix:")
+print(cm)
+
+print("\nClassification Report:")
+target_names = [iris.target_names[0], iris.target_names[1]]
+print(classification_report(y_test, y_pred, target_names=target_names))
+
+# ==========================================
+# 5. CLASSIFY A NEW SAMPLE
+# ==========================================
+# Sample measurements: [Sepal Length, Sepal Width, Petal Length, Petal Width]
+new_sample = np.array([[5.1, 3.5, 1.4, 0.2]])
+new_sample_scaled = scaler.transform(new_sample)
+prediction = perceptron.predict(new_sample_scaled)
+
+print("-" * 50)
+print(f"Sample Input : {new_sample[0]}")
+print(f"Predicted Class : {target_names[prediction[0]].capitalize()}")
