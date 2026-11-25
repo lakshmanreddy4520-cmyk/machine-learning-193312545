@@ -1,0 +1,96 @@
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+# ==========================================
+# 1. GENERATE SYNTHETIC BANK LOAN DATASET
+# ==========================================
+np.random.seed(42)
+n_samples = 500
+
+data = {
+    'Age': np.random.randint(21, 65, n_samples),
+    'Annual_Income': np.random.randint(20000, 150000, n_samples),
+    'Credit_Score': np.random.randint(300, 850, n_samples),
+    'Loan_Amount': np.random.randint(5000, 50000, n_samples),
+    'Employment_Status': np.random.choice(['Employed', 'Self-Employed', 'Unemployed'], n_samples),
+    'Existing_Loans': np.random.randint(0, 5, n_samples)
+}
+
+df = pd.DataFrame(data)
+
+# Calculate target Loan_Approved (1 = Approved, 0 = Rejected) based on standard banking rules
+approval_score = (
+    (df['Annual_Income'] * 0.0004)
+    + (df['Credit_Score'] * 0.1)
+    - (df['Loan_Amount'] * 0.0008)
+    - (df['Existing_Loans'] * 5)
+    + np.where(df['Employment_Status'] == 'Employed', 15, 0)
+)
+
+df['Loan_Approved'] = (approval_score > 55).astype(int)
+
+# ==========================================
+# 2. DATA PREPROCESSING
+# ==========================================
+# Encode categorical feature
+label_enc = LabelEncoder()
+df['Employment_Status'] = label_enc.fit_transform(df['Employment_Status'])
+
+X = df.drop(columns=['Loan_Approved'])
+y = df['Loan_Approved']
+
+# Split dataset: 80% training, 20% testing
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Feature Scaling
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# ==========================================
+# 3. MODEL TRAINING (Gaussian Naïve Bayes)
+# ==========================================
+model = GaussianNB()
+model.fit(X_train_scaled, y_train)
+
+# Make predictions on test set
+y_pred = model.predict(X_test_scaled)
+
+# ==========================================
+# 4. EVALUATION & RESULTS
+# ==========================================
+accuracy = accuracy_score(y_test, y_pred)
+cm = confusion_matrix(y_test, y_pred)
+
+print("--- BANK LOAN PREDICTION (NAÏVE BAYES) RESULTS ---\n")
+print(f"Model Accuracy: {accuracy * 100:.2f}%\n")
+
+print("Confusion Matrix:")
+print(cm)
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, target_names=['Rejected (0)', 'Approved (1)']))
+
+# ==========================================
+# 5. PREDICT LOAN APPROVAL FOR NEW APPLICANT
+# ==========================================
+# Applicant Data: [Age, Annual_Income, Credit_Score, Loan_Amount, Employment_Status, Existing_Loans]
+# Employment_Status: Employed = 0, Self-Employed = 1, Unemployed = 2 (per LabelEncoder)
+new_applicant = np.array([[35, 85000, 720, 20000, 0, 1]])
+new_applicant_scaled = scaler.transform(new_applicant)
+
+prediction = model.predict(new_applicant_scaled)[0]
+probabilities = model.predict_proba(new_applicant_scaled)[0]
+
+status = "Approved" if prediction == 1 else "Rejected"
+
+print("-" * 55)
+print(f"Sample Applicant : 35 yrs old, $85k Income, 720 Credit Score, $20k Loan")
+print(f"Predicted Decision: {status}")
+print(f"Approval Probability: {probabilities[1] * 100:.2f}%")
