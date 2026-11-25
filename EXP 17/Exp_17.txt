@@ -1,0 +1,99 @@
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+# ==========================================
+# 1. GENERATE SYNTHETIC MOBILE DATASET
+# ==========================================
+np.random.seed(42)
+n_samples = 600
+
+# Generating realistic mobile phone specifications
+battery_power = np.random.randint(500, 5000, n_samples)
+ram = np.random.randint(512, 8192, n_samples)          # in MB
+int_memory = np.random.randint(8, 256, n_samples)       # in GB
+clock_speed = np.round(np.random.uniform(1.0, 3.2, n_samples), 1)
+n_cores = np.random.choice([2, 4, 6, 8], n_samples)
+primary_camera = np.random.randint(2, 108, n_samples)  # MP
+fc = np.random.randint(2, 32, n_samples)               # Front camera MP
+px_height = np.random.randint(200, 1960, n_samples)
+px_width = np.random.randint(500, 2560, n_samples)
+four_g = np.random.choice([0, 1], n_samples)
+touch_screen = np.random.choice([0, 1], n_samples)
+
+# Create DataFrame
+data = pd.DataFrame({
+    'Battery_Power': battery_power,
+    'RAM_MB': ram,
+    'Internal_Memory_GB': int_memory,
+    'Clock_Speed_GHz': clock_speed,
+    'Cores': n_cores,
+    'Primary_Cam_MP': primary_camera,
+    'Front_Cam_MP': fc,
+    'Px_Height': px_height,
+    'Px_Width': px_width,
+    'Four_G': four_g,
+    'Touch_Screen': touch_screen
+})
+
+# Price Range target calculation (0: Low Cost, 1: Medium Cost, 2: High Cost, 3: Very High Cost)
+# RAM is the single strongest factor in mobile pricing
+price_score = (
+    (data['RAM_MB'] * 0.6) 
+    + (data['Battery_Power'] * 0.15) 
+    + (data['Internal_Memory_GB'] * 5) 
+    + (data['Px_Height'] * data['Px_Width'] * 0.0001)
+)
+
+data['Price_Range'] = pd.qcut(price_score, q=4, labels=[0, 1, 2, 3])
+
+# ==========================================
+# 2. DATA PREPROCESSING & SPLIT
+# ==========================================
+X = data.drop(columns=['Price_Range'])
+y = data['Price_Range']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Standardize numerical features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# ==========================================
+# 3. MODEL TRAINING & EVALUATION
+# ==========================================
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train_scaled, y_train)
+
+# Predictions
+y_pred = model.predict(X_test_scaled)
+
+# Target tier names
+price_tier_names = ['0 (Low)', '1 (Medium)', '2 (High)', '3 (Very High)']
+
+print("--- MOBILE PRICE RANGE PREDICTION RESULTS ---\n")
+print(f"Overall Accuracy: {accuracy_score(y_test, y_pred) * 100:.2f}%\n")
+
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, target_names=price_tier_names))
+
+# ==========================================
+# 4. PREDICT PRICE TIER FOR A NEW MOBILE
+# ==========================================
+# Sample Input: [Battery, RAM, Memory, Clock, Cores, PCam, FCam, PxH, PxW, 4G, Touch]
+new_mobile = np.array([[4000, 6144, 128, 2.8, 8, 64, 16, 1080, 2400, 1, 1]])
+new_mobile_scaled = scaler.transform(new_mobile)
+predicted_tier = model.predict(new_mobile_scaled)[0]
+
+print("-" * 55)
+print(f"Sample Spec  : 6GB RAM, 128GB Storage, 4000mAh, Octa-Core")
+print(f"Predicted Price Tier : Category {predicted_tier} ({price_tier_names[predicted_tier]})")
